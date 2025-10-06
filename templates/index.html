@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PhishGuard</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>PhishGuard</h1>
+    <p>Paste an email below. PhishGuard will score its phishing likelihood and show a clear label + risk meter.</p>
+
+    <form id="form">
+      <textarea id="text" rows="8" placeholder="Paste email text here..."></textarea>
+      <div class="actions">
+        <button id="analyze">Analyze Message</button>
+        <button id="demo" type="button">Try Example</button>
+      </div>
+    </form>
+
+    <div id="result" class="card hidden">
+      <span id="label" class="badge">—</span>
+      <div id="meter" class="meter"><div></div></div>
+      <p id="score">Phishing probability: —</p>
+    </div>
+
+    <footer>Built by Manuel Diaz — MVP demo</footer>
+  </div>
+
+  <script>
+    const form = document.getElementById('form');
+    const textarea = document.getElementById('text');
+    const result = document.getElementById('result');
+    const label = document.getElementById('label');
+    const meter = document.getElementById('meter');
+    const bar = meter.querySelector('div');
+    const scoreP = document.getElementById('score');
+    const demo = document.getElementById('demo');
+
+    function setView(prob){
+      let cls, txt;
+      if(prob < 0.30){ cls='safe'; txt='Likely Safe'; }
+      else if(prob < 0.70){ cls='warn'; txt='Suspicious'; }
+      else { cls='danger'; txt='Likely Phishing'; }
+      label.className = `badge ${cls}`;
+      label.textContent = txt;
+      meter.className = `meter ${cls}`;
+      bar.style.width = `${Math.round(prob*100)}%`;
+      scoreP.textContent = `Phishing probability: ${Math.round(prob*100)}%`;
+      result.classList.remove('hidden');
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      result.classList.add('hidden');
+      try {
+        const r = await fetch('/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: textarea.value || "" })
+        });
+        const raw = await r.text();
+        let j;
+        try { j = JSON.parse(raw); }
+        catch { alert('Server returned non-JSON:\\n' + raw.slice(0,400)); return; }
+        if(!r.ok){ alert(j.error || 'Prediction failed'); return; }
+        setView(j.score);
+      } catch (err) {
+        alert('Network error: ' + err.message);
+      }
+    });
+
+    demo.addEventListener('click', () => {
+      textarea.value = "Your account is on hold. Verify your password immediately at http://bit.ly/secure";
+    });
+  </script>
+</body>
+</html>
